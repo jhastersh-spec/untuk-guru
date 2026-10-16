@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#10284b">
+  <meta name="description" content="AbsenKu — Sistem Absensi Kartu Pelajar Otomatis SMK Manbaul Ulum Cirebon">
+  <title>AbsenKu — SMK Manbaul Ulum Cirebon</title>
+  <link rel="stylesheet" href="style.css">
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
+  <script defer src="script.js"></script>
+</head>
+<body>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <main id="authView" class="auth-screen">
+    <section class="auth-card">
+      <div class="brand-mark brand-mark-large">MU</div>
+      <p class="eyebrow">SMK MANBAUL ULUM CIREBON</p>
+      <h1>AbsenKu</h1>
+      <p class="muted auth-intro">Sistem absensi kartu pelajar otomatis</p>
+      <div id="setupNotice" class="notice notice-info hidden">
+        <strong>Pengaturan admin pertama</strong>
+        <p>Daftarkan admin awal untuk mengaktifkan dashboard. Prototipe ini hanya menyimpan data di browser ini.</p>
+      </div>
+      <form id="authForm" class="form-stack">
+        <label for="authUsername">Username admin</label>
+        <input id="authUsername" name="username" autocomplete="username" required placeholder="MASUK GURU">
+        <label for="authPassword">Kata sandi</label>
+        <input id="authPassword" name="password" type="password" autocomplete="current-password" required placeholder="Masukkan kata sandi">
+        <button id="authSubmit" class="button button-primary button-full" type="submit">Masuk ke dashboard</button>
+      </form>
+      <p id="authHint" class="auth-hint">Akses hanya untuk admin yang terdaftar.</p>
+      <p class="security-note">Penyimpanan browser bukan keamanan produksi. Jangan gunakan data pribadi nyata tanpa backend dan persetujuan sekolah.</p>
+    </section>
+  </main>
+
+  <div id="appView" class="app-shell hidden">
+    <aside class="sidebar">
+      <a class="brand" href="#" data-page="dashboard" aria-label="AbsenKu, dashboard">
+        <span class="brand-mark">MU</span>
+        <span><strong>AbsenKu</strong><small>SMK Manbaul Ulum</small></span>
+      </a>
+      <nav class="side-nav" aria-label="Navigasi utama">
+        <button class="nav-link active" data-page="dashboard"><span>▦</span>Dashboard</button>
+        <button class="nav-link" data-page="students"><span>♙</span>Data Siswa</button>
+        <button class="nav-link" data-page="cards"><span>▤</span>Kartu Pelajar</button>
+        <button class="nav-link" data-page="camera"><span>▣</span>Kamera Absensi</button>
+        <button class="nav-link" data-page="reports"><span>▥</span>Rekap & Laporan</button>
+        <button class="nav-link" data-page="settings"><span>⚙</span>Pengaturan</button>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="admin-chip"><span class="avatar">A</span><span><strong>Admin</strong><small id="adminName">MASUK GURU</small></span></div>
+        <button id="logoutButton" class="button button-quiet button-full">Keluar</button>
+      </div>
+    </aside>
+
+    <div class="main-column">
+      <header class="topbar">
+        <div class="mobile-brand"><span class="brand-mark">MU</span><strong>AbsenKu</strong></div>
+        <div class="topbar-school">SMK Manbaul Ulum Cirebon</div>
+        <div class="topbar-date"><span class="live-dot"></span><span id="liveDateTime">—</span></div>
+      </header>
+      <nav class="mobile-nav" aria-label="Navigasi utama">
+        <button class="nav-link active" data-page="dashboard"><span>▦</span>Beranda</button>
+        <button class="nav-link" data-page="students"><span>♙</span>Siswa</button>
+        <button class="nav-link" data-page="camera"><span>▣</span>Scan</button>
+        <button class="nav-link" data-page="reports"><span>▥</span>Laporan</button>
+        <button class="nav-link" data-page="settings"><span>⚙</span>Atur</button>
+      </nav>
+
+      <main class="content">
+        <section id="page-dashboard" class="page-section active">
+          <div class="page-heading">
+            <div><p class="eyebrow">RINGKASAN SEKOLAH</p><h1>Dashboard</h1><p class="muted">Pantau kehadiran siswa hari ini.</p></div>
+            <button class="button button-primary" data-page="camera">▣ <span>Mulai scan</span></button>
+          </div>
+          <div class="stat-grid">
+            <article class="stat-card"><span class="stat-icon icon-blue">♙</span><div><p>Total siswa</p><strong id="statStudents">0</strong><small>Data siswa aktif</small></div></article>
+            <article class="stat-card"><span class="stat-icon icon-green">✓</span><div><p>Hadir hari ini</p><strong id="statPresent">0</strong><small id="statPresentDetail">Termasuk terlambat</small></div></article>
+            <article class="stat-card"><span class="stat-icon icon-orange">◷</span><div><p>Terlambat</p><strong id="statLate">0</strong><small>Dicatat saat scan masuk</small></div></article>
+            <article class="stat-card"><span class="stat-icon icon-purple">▤</span><div><p>Izin & sakit</p><strong id="statExcused">0</strong><small id="statExcusedDetail">Izin 0 · Sakit 0</small></div></article>
+            <article class="stat-card"><span class="stat-icon icon-red">!</span><div><p>Belum hadir</p><strong id="statMissing">0</strong><small>Tidak otomatis dianggap alfa</small></div></article>
+            <article class="stat-card"><span class="stat-icon icon-teal">%</span><div><p>Persentase hadir</p><strong id="statRate">0%</strong><small>Dari status yang tercatat</small></div></article>
+          </div>
+          <div class="dashboard-grid">
+            <article class="panel chart-panel">
+              <div class="panel-heading"><div><h2>Rekap 7 hari terakhir</h2><p class="muted">Jumlah scan hadir dan terlambat</p></div><span class="legend"><i class="legend-present"></i>Hadir <i class="legend-late"></i>Terlambat</span></div>
+              <div id="attendanceChart" class="chart" aria-label="Grafik rekap kehadiran 7 hari"></div>
+            </article>
+            <article class="panel">
+              <div class="panel-heading"><div><h2>Aktivitas terbaru</h2><p class="muted">Pemindaian hari ini</p></div><button class="text-button" data-page="reports">Lihat rekap</button></div>
+              <div id="recentActivity" class="activity-list"></div>
+            </article>
+          </div>
+          <div class="notice notice-warning privacy-notice"><strong>Catatan kehadiran</strong><span>Scan QR hanya mengidentifikasi kartu, bukan membuktikan pemiliknya hadir. Petugas tetap harus mencocokkan foto dan siswa secara visual.</span></div>
+        </section>
+
+        <section id="page-students" class="page-section">
+          <div class="page-heading">
+            <div><p class="eyebrow">ADMINISTRASI</p><h1>Data Siswa</h1><p class="muted">Kelola data siswa dan kartu pelajar.</p></div>
+            <button id="addStudentButton" class="button button-primary">＋ <span>Tambah siswa</span></button>
+          </div>
+          <div class="toolbar panel">
+            <div class="search-wrap"><span>⌕</span><input id="studentSearch" type="search" placeholder="Cari nama, NIS, kelas…" aria-label="Cari siswa"></div>
+            <select id="classFilter" aria-label="Filter kelas"><option value="">Semua kelas</option></select>
+          </div>
+          <div class="panel table-panel">
+            <div class="table-scroll"><table><thead><tr><th>Siswa</th><th>NIS</th><th>Kelas / Jurusan</th><th>Status</th><th class="align-right">Aksi</th></tr></thead><tbody id="studentTableBody"></tbody></table></div>
+            <p id="studentEmpty" class="empty-state hidden">Belum ada siswa. Tambahkan data siswa pertama.</p>
+          </div>
+        </section>
+
+        <section id="page-cards" class="page-section">
+          <div class="page-heading"><div><p class="eyebrow">IDENTITAS SISWA</p><h1>Kartu Pelajar</h1><p class="muted">Kartu dibuat dari data siswa tersimpan.</p></div></div>
+          <div class="toolbar panel"><div class="search-wrap"><span>⌕</span><input id="cardSearch" type="search" placeholder="Cari siswa…" aria-label="Cari kartu siswa"></div></div>
+          <div id="cardGrid" class="card-grid"></div>
+        </section>
+
+        <section id="page-camera" class="page-section">
+          <div class="page-heading"><div><p class="eyebrow">PEMINDAIAN KARTU</p><h1>Kamera Absensi</h1><p class="muted">Arahkan QR kartu ke dalam bingkai pemindaian.</p></div></div>
+          <div class="camera-layout">
+            <article class="panel scanner-panel">
+              <div class="scanner-toolbar"><label for="cameraSelect" class="sr-only">Pilih kamera</label><select id="cameraSelect" aria-label="Pilih kamera"><option value="">Kamera otomatis</option></select><span id="cameraStatus" class="camera-status">Kamera belum aktif</span></div>
+              <div class="video-stage"><video id="cameraVideo" playsinline muted></video><div class="scan-frame"><i></i><i></i><i></i><i></i><span></span></div><div id="cameraPlaceholder" class="camera-placeholder"><span>▣</span><strong>Siap memindai kartu</strong><small>Pastikan izin kamera diberikan pada browser.</small></div></div>
+              <div class="scanner-controls"><button id="startScanButton" class="button button-primary">Mulai Scan</button><button id="stopScanButton" class="button button-secondary" disabled>Hentikan Kamera</button></div>
+              <p class="camera-tip">Petugas harus mencocokkan foto pada kartu dengan siswa di hadapan mereka sebelum mengesahkan kehadiran. QR bukan bukti kehadiran pemilik kartu.</p>
+              <p id="scanMessage" class="scan-message" role="status"></p>
+            </article>
+            <article class="panel scan-result-panel"><div class="panel-heading"><div><h2>Hasil pemindaian</h2><p class="muted">Identitas dan status scan terbaru</p></div></div><div id="scanResult" class="scan-result-empty"><span>♙</span><p>Hasil scan akan muncul di sini.</p></div></article>
+          </div>
+        </section>
+
+        <section id="page-reports" class="page-section">
+          <div class="page-heading"><div><p class="eyebrow">DATA KEHADIRAN</p><h1>Rekap & Laporan</h1><p class="muted">Laporan dibuat berdasarkan data absensi yang tersimpan.</p></div></div>
+          <div class="panel report-filters">
+            <label>Jenis laporan<select id="reportType"><option value="daily">Harian</option><option value="weekly">Mingguan</option><option value="monthly">Bulanan</option><option value="range">Rentang tanggal</option></select></label>
+            <label id="reportDateWrap">Tanggal<input id="reportDate" type="date"></label>
+            <label id="reportMonthWrap" class="hidden">Bulan<input id="reportMonth" type="month"></label>
+            <label id="reportStartWrap" class="hidden">Dari tanggal<input id="reportStart" type="date"></label>
+            <label id="reportEndWrap" class="hidden">Sampai tanggal<input id="reportEnd" type="date"></label>
+            <label>Kelas<select id="reportClass"><option value="">Semua kelas</option></select></label>
+            <label>Siswa<select id="reportStudent"><option value="">Semua siswa</option></select></label>
+            <div class="report-actions"><button id="previewReportButton" class="button button-secondary">Lihat Pratinjau</button><button id="downloadPdfButton" class="button button-primary">Unduh PDF</button><button id="printReportButton" class="button button-secondary">Cetak Laporan</button><button id="exportCsvButton" class="button button-quiet">Ekspor CSV</button></div>
+          </div>
+          <div id="reportSummary" class="report-summary"></div>
+          <div class="panel table-panel report-table-panel"><div class="panel-heading"><div><h2>Pratinjau data</h2><p id="reportPeriodLabel" class="muted">Pilih periode laporan.</p></div></div><div class="table-scroll"><table><thead><tr><th>No</th><th>NIS</th><th>Nama siswa</th><th>Kelas</th><th>Tanggal</th><th>Jam masuk</th><th>Status</th></tr></thead><tbody id="reportTableBody"></tbody></table></div><p id="reportEmpty" class="empty-state">Belum ada data absensi pada periode ini.</p></div>
+        </section>
+
+        <section id="page-settings" class="page-section">
+          <div class="page-heading"><div><p class="eyebrow">KONFIGURASI</p><h1>Pengaturan</h1><p class="muted">Atur aturan absensi dan pengelolaan data lokal.</p></div></div>
+          <div class="settings-grid">
+            <form id="settingsForm" class="panel settings-card">
+              <h2>Jam batas kehadiran</h2><p class="muted">Scan sebelum batas masuk dianggap hadir; pada atau setelahnya dianggap terlambat.</p>
+              <label for="cutoffTime">Batas jam masuk</label><input id="cutoffTime" type="time" required>
+              <label class="check-row"><input id="soundEnabled" type="checkbox"> Aktifkan suara notifikasi scan</label>
+              <button class="button button-primary" type="submit">Simpan pengaturan</button>
+              <p class="small-note">Waktu pada prototipe ini mengikuti perangkat. Untuk penggunaan resmi, waktu harus ditentukan server.</p>
+            </form>
+            <article class="panel settings-card">
+              <h2>Akhir periode absensi</h2><p class="muted">Alfa hanya ditetapkan oleh admin setelah periode scan selesai, bukan otomatis ketika siswa belum scan.</p>
+              <button id="markAbsentButton" class="button button-danger">Tetapkan Alfa yang belum tercatat hari ini</button>
+              <p class="small-note">Tindakan dicatat di riwayat admin lokal. Pastikan periode absensi sudah ditutup.</p>
+            </article>
+            <article class="panel settings-card settings-wide">
+              <h2>Data dan privasi</h2><div class="notice notice-warning"><strong>Prototipe lokal</strong><span>Data hanya tersimpan di LocalStorage browser/perangkat ini. Data bisa hilang jika penyimpanan browser dibersihkan, tidak tersinkron antar perangkat, dan tidak aman sebagai sistem produksi.</span></div>
+              <p class="small-note">Untuk operasional sekolah, gunakan backend dan database terpusat, autentikasi server, pencadangan, pencatatan audit, waktu server, pembatasan akses, serta izin/persetujuan yang sesuai untuk foto siswa.</p>
+              <div class="settings-actions"><button id="exportBackupButton" class="button button-secondary">Unduh cadangan JSON</button><label class="button button-secondary import-label" for="importBackupInput">Pulihkan cadangan<input id="importBackupInput" type="file" accept="application/json" hidden></label></div>
+            </article>
+          </div>
+        </section>
+      </main>
+      <footer class="footer-note">AbsenKu · Prototipe lokal untuk SMK Manbaul Ulum Cirebon</footer>
+    </div>
+  </div>
+
+  <dialog id="studentDialog" class="dialog">
+    <form id="studentForm" class="dialog-form">
+      <div class="dialog-heading"><div><p class="eyebrow">DATA SISWA</p><h2 id="studentDialogTitle">Tambah siswa</h2></div><button type="button" class="icon-button" data-close-dialog aria-label="Tutup">×</button></div>
+      <input id="studentId" type="hidden">
+      <div class="form-grid">
+        <label>NIS<input id="studentNis" required maxlength="30" autocomplete="off"></label>
+        <label>Nama lengkap<input id="studentName" required maxlength="100" autocomplete="name"></label>
+        <label>Kelas<input id="studentClass" required maxlength="30" placeholder="X RPL 1"></label>
+        <label>Jurusan<input id="studentMajor" required maxlength="60" placeholder="Rekayasa Perangkat Lunak"></label>
+        <label>Jenis kelamin<select id="studentGender"><option value="">Pilih (opsional)</option><option value="Laki-laki">Laki-laki</option><option value="Perempuan">Perempuan</option></select></label>
+        <label>Tahun ajaran<input id="studentYear" required maxlength="20" placeholder="2026/2027"></label>
+        <label>Status siswa<select id="studentStatus"><option value="Aktif">Aktif</option><option value="Nonaktif">Nonaktif</option></select></label>
+      </div>
+      <label class="photo-label">Foto siswa (kamera atau galeri)<input id="studentPhoto" type="file" accept="image/*" capture="user"><small>Gunakan foto dengan izin/persetujuan yang sesuai. Foto dikompres sebelum disimpan di browser.</small></label>
+      <div id="photoPreview" class="photo-preview hidden"></div>
+      <div class="dialog-actions"><button type="button" class="button button-secondary" data-close-dialog>Batal</button><button type="submit" class="button button-primary">Simpan siswa</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="cardDialog" class="dialog card-dialog">
+    <div class="dialog-form"><div class="dialog-heading"><div><p class="eyebrow">KARTU PELAJAR DIGITAL</p><h2 id="cardDialogTitle">Kartu siswa</h2></div><button type="button" class="icon-button" data-close-dialog aria-label="Tutup">×</button></div>
+      <div id="cardPreviewHost" class="card-preview-host"></div>
+      <div class="dialog-actions"><button id="printCardButton" class="button button-secondary">Cetak Kartu</button><button id="downloadCardButton" class="button button-primary">Unduh Kartu</button></div>
+    </div>
+  </dialog>
+
+  <dialog id="previewDialog" class="dialog report-preview-dialog">
+    <div class="dialog-form"><div class="dialog-heading"><div><p class="eyebrow">PRATINJAU LAPORAN</p><h2>Laporan absensi</h2></div><button type="button" class="icon-button" data-close-dialog aria-label="Tutup">×</button></div><div id="reportPreviewHost" class="report-preview-host"></div><div class="dialog-actions"><button type="button" class="button button-secondary" data-close-dialog>Tutup</button><button id="previewDownloadButton" class="button button-primary">Unduh PDF</button></div></div>
+  </dialog>
+
+  <dialog id="confirmDialog" class="dialog confirm-dialog">
+    <form method="dialog" class="dialog-form"><div class="dialog-heading"><div><p class="eyebrow">KONFIRMASI ADMIN</p><h2 id="confirmTitle">Konfirmasi</h2></div><button value="cancel" class="icon-button" aria-label="Tutup">×</button></div><p id="confirmMessage" class="muted"></p><div class="dialog-actions"><button value="cancel" class="button button-secondary">Batal</button><button id="confirmAccept" value="confirm" class="button button-danger">Ya, lanjutkan</button></div></form>
+  </dialog>
+</body>
+</html>
